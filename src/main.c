@@ -45,10 +45,9 @@
 /*==================[macros and definitions]=================================*/
 #define STACK_SIZE 512
 /*==================[internal data declaration]==============================*/
-static uint8_t pila1[STACK_SIZE];
-static uint8_t pila2[STACK_SIZE];
-static uint32_t sp1;
-static uint32_t sp2;
+static uint32_t pila1[STACK_SIZE/4];
+static uint32_t pila2[STACK_SIZE/4];
+
 /*==================[internal functions declaration]=========================*/
 
 /** @brief hardware initialization function
@@ -60,6 +59,8 @@ static void initHardware(void);
 typedef void(*task_t)(void);
 
 /*==================[external data definition]===============================*/
+uint32_t sp2;
+uint32_t sp1;
 
 /*==================[internal functions definition]==========================*/
 
@@ -69,15 +70,22 @@ static void initHardware(void) {
    SysTick_Config(SystemCoreClock / 1000);
 }
 
-void init_task(task_t task, uint8_t stack, uint32_t stackPointer) {
+void init_task(task_t task, uint32_t *stack, uint32_t *stackPointer, uint32_t stackLength) {
+    // Point stack pointer to last unused position in stack. 8 positions used.
+    *stackPointer = (uint32_t)(stack + stackLength - 8);
+
+    // Indicate ARM/Thumb mode
+    stack[stackLength - 1] = 1 << 24;
+
+    // Program counter is the pointer to task
+    stack[stackLength - 2] = (uint32_t)task;
+}
+
+void start_os(void) {
 
 }
 
 /*==================[external functions definition]==========================*/
-void SysTick_Handler(void) {
-
-}
-
 void task1(void) {
    int i = 0;
 
@@ -97,8 +105,8 @@ void task2(void) {
 int main(void) {
    initHardware();
 
-   init_task(task1, pila1, sp1);
-   init_task(task1, pila2, sp1);
+   init_task(task1, pila1, &sp1, STACK_SIZE/4);
+   init_task(task2, pila2, &sp2, STACK_SIZE/4);
 
    start_os();
 

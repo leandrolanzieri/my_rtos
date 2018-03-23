@@ -40,13 +40,14 @@
 /*==================[inclusions]=============================================*/
 
 #include "main.h"
-#include "board.h"
+// #include "board.h"
+#include "sapi.h"
+#include "my_rtos.h"
 
 /*==================[macros and definitions]=================================*/
-#define STACK_SIZE 512
 /*==================[internal data declaration]==============================*/
-static uint32_t pila1[STACK_SIZE/4];
-static uint32_t pila2[STACK_SIZE/4];
+static uint8_t pila1[MY_RTOS_STACK_SIZE];
+static uint8_t pila2[MY_RTOS_STACK_SIZE];
 
 /*==================[internal functions declaration]=========================*/
 
@@ -56,7 +57,6 @@ static uint32_t pila2[STACK_SIZE/4];
 static void initHardware(void);
 
 /*==================[internal data definition]===============================*/
-typedef void(*task_t)(void);
 
 /*==================[external data definition]===============================*/
 uint32_t sp2;
@@ -65,50 +65,39 @@ uint32_t sp1;
 /*==================[internal functions definition]==========================*/
 
 static void initHardware(void) {
-   Board_Init();
+   // Board_Init();
+   boardConfig();
    SystemCoreClockUpdate();
    SysTick_Config(SystemCoreClock / 1000);
 }
 
-void init_task(task_t task, uint32_t *stack, uint32_t *stackPointer, uint32_t stackLength) {
-    // Point stack pointer to last unused position in stack. 8 positions used.
-    *stackPointer = (uint32_t)(stack + stackLength - 8);
-
-    // Indicate ARM/Thumb mode
-    stack[stackLength - 1] = 1 << 24;
-
-    // Program counter is the pointer to task
-    stack[stackLength - 2] = (uint32_t)task;
-}
-
-void start_os(void) {
-
-}
 
 /*==================[external functions definition]==========================*/
 void task1(void) {
-   int i = 0;
+   uint32_t i = 0;
 
    while(1) {
-      i++;
+      for (i = 0; i < 1000000; i++) {}
+      // gpioToggle(LEDR);
    }
 }
 
 void task2(void) {
-   int j = 0;
+   uint32_t j = 0;
 
    while(1) {
-      j++;
+     for (j = 0; j < 1000000; j++) {}
+     // gpioToggle(LEDB);
    }
 }
 
 int main(void) {
    initHardware();
 
-   init_task(task1, pila1, &sp1, STACK_SIZE/4);
-   init_task(task2, pila2, &sp2, STACK_SIZE/4);
+   MyRtos_InitTask(task1, pila1, &sp1, MY_RTOS_STACK_SIZE);
+   MyRtos_InitTask(task2, pila2, &sp2, MY_RTOS_STACK_SIZE);
 
-   start_os();
+   MyRtos_StartOS();
 
    while (1) {
    }

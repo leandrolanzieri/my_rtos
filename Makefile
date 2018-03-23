@@ -33,7 +33,7 @@
 PROJECT_NAME := $(notdir $(PROJECT))
 
 # Modules needed by the application
-PROJECT_MODULES := modules/$(TARGET)/sapi \
+PROJECT_MODULES := modules/$(TARGET)/sapi_rtos \
 				   modules/$(TARGET)/base \
                    modules/$(TARGET)/board \
                    modules/$(TARGET)/chip

@@ -8,6 +8,12 @@
 
 #define MY_RTOS_INITIAL_xPSR    (1 << 24)
 
+#define MY_RTOS_EXC_RETURN (0xFFFFFFF9)
+
+#define MY_RTOS_ACTUAL_TASK_NONE -1
+
+#define MY_RTOS_MAX_TASKS  8
+
 /***********************************************************************/
 typedef void(*task_t)(void);
 

@@ -69,16 +69,20 @@ static void initHardware(void) {
    boardConfig();
    SystemCoreClockUpdate();
    SysTick_Config(SystemCoreClock / 1000);
+
+   // Lowest priority to pendSV interrupt
+   // 100000b - 1b = 011111b 
+   NVIC_SetPriority(PendSV_IRQn, (1 << __NVIC_PRIO_BITS) - 1);
 }
 
 
 /*==================[external functions definition]==========================*/
 void task1(void) {
    uint32_t i = 0;
-
+   gpioToggle(LED1);
    while(1) {
-      for (i = 0; i < 1000000; i++) {}
-      // gpioToggle(LEDR);
+      for (i = 0; i < 500000; i++) {}
+      gpioToggle(LED1);
    }
 }
 
@@ -87,7 +91,7 @@ void task2(void) {
 
    while(1) {
      for (j = 0; j < 1000000; j++) {}
-     // gpioToggle(LEDB);
+     gpioToggle(LED2);
    }
 }
 

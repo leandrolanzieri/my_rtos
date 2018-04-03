@@ -46,8 +46,8 @@
 
 /*==================[macros and definitions]=================================*/
 /*==================[internal data declaration]==============================*/
-static uint8_t pila1[MY_RTOS_STACK_SIZE];
-static uint8_t pila2[MY_RTOS_STACK_SIZE];
+static uint8_t stack1[MY_RTOS_STACK_SIZE];
+static uint8_t stack2[MY_RTOS_STACK_SIZE];
 
 /*==================[internal functions declaration]=========================*/
 
@@ -98,8 +98,8 @@ void task2(void) {
 int main(void) {
    initHardware();
 
-   MyRtos_InitTask(task1, pila1, &sp1, MY_RTOS_STACK_SIZE);
-   MyRtos_InitTask(task2, pila2, &sp2, MY_RTOS_STACK_SIZE);
+   MyRtos_InitTask(task1, (uint32_t *)stack1, &sp1, MY_RTOS_STACK_SIZE);
+   MyRtos_InitTask(task2, (uint32_t *)stack2, &sp2, MY_RTOS_STACK_SIZE);
 
    MyRtos_StartOS();
 

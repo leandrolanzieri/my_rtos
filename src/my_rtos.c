@@ -2,8 +2,14 @@
 #include "chip.h"
 #include "my_rtos.h"
 
-// TODO: Remove
-extern uint32_t sp1, sp2;
+
+
+static task_t tasks[MY_RTOS_MAX_TASKS];
+
+static uint32_t stackPointers[MY_RTOS_MAX_TASKS];
+
+static uint32_t addedTasks = 0;
+
 /**
  * @brief Register a new task to the OS scheduler.
  * 
@@ -12,27 +18,43 @@ extern uint32_t sp1, sp2;
  * @param stackPointer Pointer to the 'stack pointer' of the task
  * @param stackLength Length of the stack of the task, expressed in bytes
  */
-void MyRtos_InitTask(task_t task, uint32_t *stack, uint32_t *stackPointer, uint32_t stackLength) {
+bool MyRtos_InitTask(task_t task, uint32_t *stack, uint32_t *stackPointer, uint32_t stackLength) {
 
-   // Initialize stack with 0
-   memset(stack, 0, MY_RTOS_STACK_SIZE);
+   // Check tasks limit
+   if (addedTasks < MY_RTOS_MAX_TASKS - 1) {
+      // Initialize stack with 0
+      memset(stack, 0, MY_RTOS_STACK_SIZE);
 
-   // Point stack pointer to last unused position in stack. 8 positions used.
-   *stackPointer = (uint32_t)(stack + (stackLength / 4) - 17); // 17?
+      // Point stack pointer to last unused position in stack. 8 positions used.
+      *stackPointer = (uint32_t)(stack + (stackLength / 4) - 17); // 17?
 
-   // Indicate ARM/Thumb mode in PSR registers
-   stack[(stackLength / 4) - 1] = MY_RTOS_INITIAL_xPSR;
+      // Indicate ARM/Thumb mode in PSR registers
+      stack[(stackLength / 4) - 1] = MY_RTOS_INITIAL_xPSR;
 
-   // Program counter is the pointer to task
-   stack[(stackLength / 4) - 2] = (uint32_t)task;
+      // Program counter is the pointer to task
+      stack[(stackLength / 4) - 2] = (uint32_t)task;
 
-   // LR - Link Register. Could be use to point to a return hook. 0 for now.
-   stack[(stackLength / 4) - 3] = 0;
+      // LR - Link Register. Could be use to point to a return hook. 0 for now.
+      stack[(stackLength / 4) - 3] = 0;
 
-   // R0 - First parameter passed to the task. 0 for now.
-   stack[(stackLength / 4) - 8] = 0;
+      // R0 - First parameter passed to the task. 0 for now.
+      stack[(stackLength / 4) - 8] = 0;
 
-   stack[(stackLength / 4) - 9] = MY_RTOS_EXC_RETURN; /* lr from stack */
+      stack[(stackLength / 4) - 9] = MY_RTOS_EXC_RETURN; /* lr from stack */
+
+      // Add task to array
+      tasks[addedTasks] = task;
+
+      // Add stack pointer to array
+      stackPointers[addedTasks] = *stackPointer;
+
+      // Update amount of tasks registered
+      addedTasks++;
+
+      return true;
+   }
+
+   return false;
 }
 
 
@@ -46,29 +68,21 @@ void MyRtos_StartOS(void) {
 
 
 uint32_t MyRtos_getNextContext(uint32_t currentSP) {
-   static int actualTask = MY_RTOS_ACTUAL_TASK_NONE;
-   uint32_t nextSP;
+   static int32_t currentTask = MY_RTOS_ACTUAL_TASK_NONE;
 
-   switch(actualTask) {
-      case 1:
-         sp1 = currentSP;
-         nextSP = sp2;
-         actualTask = 2;
-      break;
-
-      case 2:
-         sp2 = currentSP;
-         nextSP = sp1;
-         actualTask = 1;
-      break;
-
-      default:
-         nextSP = sp1;
-         actualTask = 1;
-      break;
+   // First time return first stack pointer and initialize current tasks
+   if (currentTask == MY_RTOS_ACTUAL_TASK_NONE) {
+      currentTask = 0;
+      return stackPointers[currentTask];
    }
 
-   return nextSP;
+   // Save stack pointer for current task
+   stackPointers[currentTask] = currentSP;
+
+   // Update currentTask with next task value (from 0 to addedTasks - 1)
+   currentTask = currentTask < (addedTasks - 1) ? currentTask + 1 : 0;
+
+   return stackPointers[currentTask];
 }
 
 void SysTick_Handler(void) {

@@ -48,6 +48,7 @@
 /*==================[internal data declaration]==============================*/
 static uint8_t stack1[MY_RTOS_STACK_SIZE];
 static uint8_t stack2[MY_RTOS_STACK_SIZE];
+static uint8_t stackButton[MY_RTOS_STACK_SIZE];
 
 /*==================[internal functions declaration]=========================*/
 
@@ -59,20 +60,11 @@ static void initHardware(void);
 /*==================[internal data definition]===============================*/
 
 /*==================[external data definition]===============================*/
-uint32_t sp2;
-uint32_t sp1;
 
 /*==================[internal functions definition]==========================*/
 
 static void initHardware(void) {
-   // Board_Init();
    boardConfig();
-   SystemCoreClockUpdate();
-   SysTick_Config(SystemCoreClock / 1000);
-
-   // Lowest priority to pendSV interrupt
-   // 100000b - 1b = 011111b 
-   NVIC_SetPriority(PendSV_IRQn, (1 << __NVIC_PRIO_BITS) - 1);
 }
 
 
@@ -95,16 +87,22 @@ void task2(void) {
    }
 }
 
+void taskButton(void) {
+   while(1) {
+      gpioWrite(LED3, !gpioRead(TEC1));
+   }
+ }
+
 int main(void) {
    initHardware();
 
-   MyRtos_InitTask(task1, (uint32_t *)stack1, &sp1, MY_RTOS_STACK_SIZE);
-   MyRtos_InitTask(task2, (uint32_t *)stack2, &sp2, MY_RTOS_STACK_SIZE);
+   MyRtos_InitTask(task1, (uint32_t *)stack1, MY_RTOS_STACK_SIZE);
+   MyRtos_InitTask(task2, (uint32_t *)stack2, MY_RTOS_STACK_SIZE);
+   MyRtos_InitTask(taskButton, (uint32_t *)stackButton, MY_RTOS_STACK_SIZE);
 
    MyRtos_StartOS();
 
-   while (1) {
-   }
+   while (1) {}
 }
 
 /** @} doxygen end group definition */

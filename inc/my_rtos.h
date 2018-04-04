@@ -18,7 +18,7 @@
 typedef void(*task_t)(void);
 
 /***********************************************************************/
-bool MyRtos_InitTask(task_t task, uint32_t *stack, uint32_t *stackPointer, uint32_t stackLength);
+bool MyRtos_InitTask(task_t task, uint32_t *stack, uint32_t stackLength);
 
 void MyRtos_StartOS(void);
 

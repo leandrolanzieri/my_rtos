@@ -3,9 +3,6 @@
 
 #include "stdint.h"
 
-#define MY_RTOS_INIT_TASK(_entryPoint, _stack, _stackSize, _parameter) \
-	{.entryPoint = _entryPoint, .stack = _stack, .stackPointer = 0, .stackSize = _stackSize, .state = TASK_READY, .initialParameter = _parameter}
-
 #define MY_RTOS_LAST_TASK {0,0,0,0,0}
 
 /***********************************************************************/

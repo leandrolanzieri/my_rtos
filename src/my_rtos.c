@@ -2,12 +2,38 @@
 #include "chip.h"
 #include "my_rtos.h"
 #include "my_rtos_task.h"
+#include "my_rtos_user_tasks.h"
+
+///////////////////////////////////////////////////////////////////////////////
+
+// Tasks list
+#define MY_RTOS_INIT_TASK(_entryPoint, _stack, _stackSize, _parameter)        \
+      {.entryPoint = _entryPoint, .stack = _stack, .stackPointer = 0,         \
+      .stackSize = _stackSize, .state = TASK_READY,                           \
+      .initialParameter = _parameter},
+
+static taskControl_t MyRtos_TasksList[] = {
+      MY_RTOS_TASKS
+      MY_RTOS_LAST_TASK
+};
+
+#undef MY_RTOS_INIT_TASK
+
+
+// // Amount of tasks declared
+// #define MY_RTOS_INIT_TASK(_entryPoint, _stack, _stackSize, _parameter) +1
+//       static uint32_t MyRtos_amountOfTasks = 0 MY_RTOS_TASKS;
+// #undef MY_RTOS_INIT_TASK
+
+///////////////////////////////////////////////////////////////////////////////
 
 static bool MyRtos_initTask(taskControl_t *task);
 
 static void MyRtos_idleTask(void *param);
 
 static bool MyRtos_readyTasks(void);
+
+///////////////////////////////////////////////////////////////////////////////
 
 extern taskControl_t MyRtos_TasksList[];
 
@@ -22,13 +48,14 @@ static taskControl_t idleTaskControl = {
    .initialParameter = 0
 };
 
+///////////////////////////////////////////////////////////////////////////////
 
 /**
  * @brief Starts the OS execution.
  * 
  */
 
-void MyRtos_StartOS(void) {   
+void MyRtos_StartOS(void) {
    memset(idleStack, 0, MY_RTOS_STACK_SIZE);
 
    taskControl_t * t = MyRtos_TasksList;
@@ -50,30 +77,38 @@ void MyRtos_StartOS(void) {
 uint32_t MyRtos_GetNextContext(uint32_t currentSP) {
    static int32_t currentTask = MY_RTOS_ACTUAL_TASK_NONE;
 
-   // TODO: Verificar si hubo alguna tarea declarada para no cambiar el estado o correr algo que no existe!
-   // First time return first stack pointer and initialize current tasks
+   // If no tasks were declared execute idle task
+   if (MyRtos_TasksList[0].entryPoint == 0) {
+      return idleTaskControl.stackPointer;
+   }
+
+   // The first time return first stack pointer and initialize current tasks
    if (currentTask == MY_RTOS_ACTUAL_TASK_NONE) {
       currentTask = 0;
       return MyRtos_TasksList[currentTask].stackPointer;
    }
 
+   // Save current task stack pointer and change state
    MyRtos_TasksList[currentTask].stackPointer = currentSP;
    MyRtos_TasksList[currentTask].state = TASK_READY;
 
+   // Increment the task index
    currentTask++;
 
-   // TODO: Primero revisar que hay una tarea en ready en condiciones
-   // de ejecutarse.
+   // Check if there is any 'Ready' task to be executed
    if (!MyRtos_readyTasks()) {
       return idleTaskControl.stackPointer;
    }
 
+   // Check if 'currentTask' needs to be reset
    if (MyRtos_TasksList[currentTask].entryPoint == 0) {
       currentTask = 0;
    }
 
+   // Mark the new current task as 'Running'
    MyRtos_TasksList[currentTask].state = TASK_RUNNING;
 
+   // Return new stack pointer
    return MyRtos_TasksList[currentTask].stackPointer;
 }
 
@@ -91,6 +126,7 @@ static bool MyRtos_readyTasks(void) {
       if (MyRtos_TasksList[i].state == TASK_READY) {
          return true;
       }
+      i++;
    }
    
    return false;
@@ -133,13 +169,13 @@ static void MyRtos_idleTask(void *param) {
 
 void SysTick_Handler(void) {
    // Activate PendSV for context switching
-	SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+   SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
 
    // Instruction Synchronization Barrier: this way we make sure that all
    // pipelined instructions are executed
-	__ISB();
-	
+   __ISB();
+      
    // Data Synchronization Barrier: this way we make sure that all
    // memory accesses are completed
-	__DSB();
+   __DSB();
 }

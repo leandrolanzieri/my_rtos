@@ -46,10 +46,6 @@
 
 /*==================[macros and definitions]=================================*/
 /*==================[internal data declaration]==============================*/
-static uint8_t stack1[MY_RTOS_STACK_SIZE];
-static uint8_t stack2[MY_RTOS_STACK_SIZE];
-static uint8_t stackButton[MY_RTOS_STACK_SIZE];
-
 
 /*==================[internal functions declaration]=========================*/
 
@@ -70,40 +66,11 @@ static void initHardware(void) {
 
 
 /*==================[external functions definition]==========================*/
-void task1(void *a) {
-   uint32_t i = 0;
-   gpioToggle(LED1);
-   while(1) {
-      for (i = 0; i < 500000; i++) {}
-      gpioToggle(LED1);
-   }
-}
 
-void task2(void *a) {
-   uint32_t j = 0;
-
-   while(1) {
-     for (j = 0; j < 1000000; j++) {}
-     gpioToggle(LED2);
-   }
-}
-
-void taskButton(void *a) {
-   while(1) {
-      gpioWrite(LEDG, !gpioRead(TEC1));
-
-   }
- }
-
-#define MY_RTOS_TASKS                                                             \
-       MY_RTOS_INIT_TASK(task1, (uint32_t *)stack1, MY_RTOS_STACK_SIZE, 0),          \
-       MY_RTOS_INIT_TASK(task2, (uint32_t *)stack2, MY_RTOS_STACK_SIZE, 0),          \
-       MY_RTOS_INIT_TASK(taskButton, (uint32_t *)stackButton, MY_RTOS_STACK_SIZE, 0),\
-       MY_RTOS_LAST_TASK
-
-taskControl_t MyRtos_TasksList[] = {
-      MY_RTOS_TASKS
-};
+// #define MY_RTOS_TASKS_2                                                             \
+//        MY_RTOS_DEFINE_TASK(task1, (uint32_t *)stack1, MY_RTOS_STACK_SIZE, 0),          \
+//        MY_RTOS_DEFINE_TASK(task2, (uint32_t *)stack2, MY_RTOS_STACK_SIZE, 0),          \
+//        MY_RTOS_DEFINE_TASK(taskButton, (uint32_t *)stackButton, MY_RTOS_STACK_SIZE, 0),
 
 int main(void) {
    initHardware();

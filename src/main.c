@@ -42,7 +42,10 @@
 #include "main.h"
 #include "sapi.h"
 #include "my_rtos.h"
-#include "my_rtos_task.h"
+
+#include "task1.h"
+#include "blink.h"
+#include "task_button.h"
 
 /*==================[macros and definitions]=================================*/
 /*==================[internal data declaration]==============================*/
@@ -67,11 +70,6 @@ static void initHardware(void) {
 
 /*==================[external functions definition]==========================*/
 
-// #define MY_RTOS_TASKS_2                                                             \
-//        MY_RTOS_DEFINE_TASK(task1, (uint32_t *)stack1, MY_RTOS_STACK_SIZE, 0),          \
-//        MY_RTOS_DEFINE_TASK(task2, (uint32_t *)stack2, MY_RTOS_STACK_SIZE, 0),          \
-//        MY_RTOS_DEFINE_TASK(taskButton, (uint32_t *)stackButton, MY_RTOS_STACK_SIZE, 0),
-
 int main(void) {
    initHardware();
 
@@ -79,6 +77,19 @@ int main(void) {
 
    while (1) {}
 }
+
+blinkTaskData_t taskA = { .delay = 100, .led = LED2 };
+
+
+#define MY_RTOS_TASKS                                                                \
+       MY_RTOS_INIT_TASK(blink, (uint32_t *)stack1, MY_RTOS_STACK_SIZE, &taskA)           \
+       MY_RTOS_INIT_TASK(task1, (uint32_t *)stack2, MY_RTOS_STACK_SIZE, 0)           \
+       MY_RTOS_INIT_TASK(taskButton, (uint32_t *)stackButton, MY_RTOS_STACK_SIZE, 0)
+
+taskControl_t MyRtos_TasksList[] = {
+   MY_RTOS_TASKS
+   MY_RTOS_LAST_TASK
+};
 
 /** @} doxygen end group definition */
 

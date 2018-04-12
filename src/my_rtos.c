@@ -2,10 +2,6 @@
 #include "chip.h"
 #include "my_rtos.h"
 
-// // Amount of tasks declared
-// #define MY_RTOS_INIT_TASK(_entryPoint, _stack, _stackSize, _parameter) +1
-//       static uint32_t MyRtos_amountOfTasks = 0 MY_RTOS_TASKS;
-// #undef MY_RTOS_INIT_TASK
 
 ///////////////////////////////////////////////////////////////////////////////
 // Internal functions declarations
@@ -15,13 +11,15 @@ static bool MyRtos_initTask(taskControl_t *task);
 
 static void MyRtos_idleTask(void *param);
 
-static int32_t MyRtos_readyTasks(void);
+static int32_t MyRtos_getReadyTasks(void);
 
 static void MyRtos_schedulerUpdate(void);
 
 static void MyRtos_delaysUpdate(void);
 
 static void MyRtos_returnHook(void);
+
+static void MyRtos_addReadyTask(taskControl_t **list, taskControl_t *task);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Internal data definitions
@@ -42,9 +40,14 @@ static taskControl_t idleTaskControl = {
    .initialParameter = 0
 };
 
+static taskControl_t *readyTasks[MY_RTOS_PRIORITY_LEVELS][MY_RTOS_MAX_TASKS];
+
+///////////////////////////////////////////////////////////////////////////////
+// External data definitions
+///////////////////////////////////////////////////////////////////////////////
+
 // Tasks list
 extern taskControl_t MyRtos_TasksList[];
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // External functions definitions
@@ -57,6 +60,8 @@ extern taskControl_t MyRtos_TasksList[];
 
 void MyRtos_StartOS(void) {
    memset(idleStack, 0, MY_RTOS_STACK_SIZE);
+
+   memset(readyTasks, 0, MY_RTOS_MAX_TASKS * MY_RTOS_PRIORITY_LEVELS * sizeof(taskControl_t*));
 
    taskControl_t * t = MyRtos_TasksList;
 
@@ -75,7 +80,7 @@ void MyRtos_StartOS(void) {
 
 
 void MyRtos_DelayMs(uint32_t ms) {
-   if (currentTask != MY_RTOS_ACTUAL_TASK_NONE && ms != 0) {
+   if (currentTask != MY_RTOS_ACTUAL_TASK_NONE && ms != 0 && MyRtos_TasksList[currentTask].state == TASK_RUNNING) {
       MyRtos_TasksList[currentTask].delay = ms;
       MyRtos_TasksList[currentTask].state = TASK_BLOCKED;
       MyRtos_schedulerUpdate();
@@ -92,6 +97,7 @@ uint32_t MyRtos_GetNextContext(uint32_t currentSP) {
    // The first time return first stack pointer and initialize current tasks
    if (currentTask == MY_RTOS_ACTUAL_TASK_NONE) {
       currentTask = 0;
+      MyRtos_TasksList[currentTask].state = TASK_RUNNING;
       return MyRtos_TasksList[currentTask].stackPointer;
    }
 
@@ -99,12 +105,12 @@ uint32_t MyRtos_GetNextContext(uint32_t currentSP) {
    MyRtos_TasksList[currentTask].stackPointer = currentSP;
 
    if (MyRtos_TasksList[currentTask].state == TASK_RUNNING) {
-      MyRtos_TasksList[currentTask].state = TASK_READY;
+      MyRtos_TasksList[currentTask].state = TASK_READY;  /// TODO: Agregar una funcion que agrega tareas ready y cambia el estado
    }
 
 
    // Check if there is any 'Ready' task to be executed
-   currentTask = MyRtos_readyTasks();
+   currentTask = MyRtos_getReadyTasks();
    if (currentTask < 0) {
       return idleTaskControl.stackPointer;
    }
@@ -127,30 +133,37 @@ uint32_t MyRtos_GetNextContext(uint32_t currentSP) {
  * @return false There are none ready tasks
  */
 
-static int32_t MyRtos_readyTasks(void) {
-   uint32_t i = currentTask + 1;
+// static int32_t MyRtos_getReadyTasks(void) {
+//    uint32_t i = currentTask + 1;
 
-   // Upper part of the list
-   while (MyRtos_TasksList[i].entryPoint != 0) {
-      if (MyRtos_TasksList[i].state == TASK_READY) {
-         return i;
-      }
-      i++;
-   }
+//    // Upper part of the list
+//    while (MyRtos_TasksList[i].entryPoint != 0) {
+//       if (MyRtos_TasksList[i].state == TASK_READY) {
+//          return i;
+//       }
+//       i++;
+//    }
 
-   i = 0;
+//    i = 0;
 
-   // Lower part of the list
-   while (i <= currentTask) {
-      if (MyRtos_TasksList[i].state == TASK_READY) {
-         return i;
-      }
-      i++;
-   }
+//    // Lower part of the list
+//    while (i <= currentTask) {
+//       if (MyRtos_TasksList[i].state == TASK_READY) {
+//          return i;
+//       }
+//       i++;
+//    }
    
-   return -1;
-}
+//    return -1;
+// }
 
+static taskControl_t* MyRtos_getReadyTasks(void) {
+   for (uint32_t i = 0; i < MY_RTOS_PRIORITY_LEVELS; i++) {
+      for (uint32_t j = 0; j < MY_RTOS_MAX_TASKS; j++) {
+
+      }
+   }
+}
 
 /**
  * @brief Register a new task to the OS scheduler.
@@ -179,7 +192,22 @@ static bool MyRtos_initTask(taskControl_t *task) {
 
    task->stack[(task->stackSize / 4) - 9] = MY_RTOS_EXC_RETURN; /* lr from stack */
 
+   MyRtos_addReadyTask(readyTasks[task->basePriority], task);
+
    return true;
+}
+
+
+static void MyRtos_addReadyTask(taskControl_t **list, taskControl_t *task) {
+   uint32_t i = 0;
+
+   while(list[i] != 0 && i < MY_RTOS_MAX_TASKS) {
+      i++;
+   }
+
+   if (i < MY_RTOS_MAX_TASKS) {
+      list[i] = task;
+   }
 }
 
 static void MyRtos_idleTask(void *param) {

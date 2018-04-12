@@ -80,11 +80,10 @@ int main(void) {
 
 blinkTaskData_t taskA = { .delay = 100, .led = LED2 };
 
-
 #define MY_RTOS_TASKS                                                                \
-       MY_RTOS_INIT_TASK(blink, (uint32_t *)stack1, MY_RTOS_STACK_SIZE, &taskA)           \
-       MY_RTOS_INIT_TASK(task1, (uint32_t *)stack2, MY_RTOS_STACK_SIZE, 0)           \
-       MY_RTOS_INIT_TASK(taskButton, (uint32_t *)stackButton, MY_RTOS_STACK_SIZE, 0)
+       MY_RTOS_INIT_TASK(blink, (uint32_t *)stack2, MY_RTOS_STACK_SIZE, &taskA, 0)      \
+       MY_RTOS_INIT_TASK(task1, (uint32_t *)stack1, MY_RTOS_STACK_SIZE, 0, 0)           \
+       MY_RTOS_INIT_TASK(taskButton, (uint32_t *)stackButton, MY_RTOS_STACK_SIZE, 0, 2)
 
 taskControl_t MyRtos_TasksList[] = {
    MY_RTOS_TASKS

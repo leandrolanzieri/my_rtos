@@ -14,12 +14,15 @@
 
 #define MY_RTOS_ACTUAL_TASK_NONE -1
 
-#define MY_RTOS_MAX_TASKS  8
+#define MY_RTOS_MAX_TASKS  64
 
-#define MY_RTOS_INIT_TASK(_entryPoint, _stack, _stackSize, _parameter)        \
+#define MY_RTOS_PRIORITY_LEVELS 4
+
+#define MY_RTOS_INIT_TASK(_entryPoint, _stack, _stackSize, _parameter, _priority)        \
       {.entryPoint = _entryPoint, .stack = _stack, .stackPointer = 0,         \
       .stackSize = _stackSize, .state = TASK_READY,                           \
-      .initialParameter = _parameter, .delay = 0},
+      .initialParameter = _parameter, .delay = 0, .basePriority = _priority,  \
+      .instantPriority = _priority},
 
 
 /***********************************************************************/
@@ -41,6 +44,8 @@ typedef struct {
    taskState_t state;
    void* initialParameter;
    uint32_t delay;
+   uint32_t basePriority;
+   uint32_t instantPriority;
 } taskControl_t;
 
 

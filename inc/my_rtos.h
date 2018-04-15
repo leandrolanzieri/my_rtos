@@ -12,7 +12,9 @@
 
 #define MY_RTOS_EXC_RETURN (0xFFFFFFF9)
 
-#define MY_RTOS_ACTUAL_TASK_NONE -1
+#define MY_RTOS_TASK_NONE -1
+
+#define MY_RTOS_IDLE_TASK -2
 
 #define MY_RTOS_MAX_TASKS  64
 
@@ -27,6 +29,10 @@
 
 /***********************************************************************/
 typedef void(*task_t)(void *);
+
+typedef int32_t taskID_t;
+
+typedef uint32_t taskPriority_t;
 
 typedef enum {
    TASK_ERROR = 0,
@@ -44,8 +50,8 @@ typedef struct {
    taskState_t state;
    void* initialParameter;
    uint32_t delay;
-   uint32_t basePriority;
-   uint32_t instantPriority;
+   taskPriority_t basePriority;
+   taskPriority_t instantPriority;
 } taskControl_t;
 
 

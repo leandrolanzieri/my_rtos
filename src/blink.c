@@ -4,11 +4,14 @@
 
 uint8_t stack2[MY_RTOS_STACK_SIZE];
 
+extern event_t ButtonEvent;
+
 void blink(void *config) {
    blinkTaskData_t *myConfig = (blinkTaskData_t *)config;
 
    while(1) {
-     MyRtos_DelayMs(myConfig->delay);
+     MyRtos_EventWait(&ButtonEvent);
      gpioToggle(myConfig->led);
+     MyRtos_DelayMs(500);
    }
 }

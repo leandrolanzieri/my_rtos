@@ -2,6 +2,7 @@
 #define MY_RTOS_H
 
 #include "stdint.h"
+#include "stdbool.h"
 
 #define MY_RTOS_LAST_TASK {0,0,0,0,0}
 
@@ -32,6 +33,8 @@ typedef void(*task_t)(void *);
 
 typedef int32_t taskID_t;
 
+typedef uint32_t eventID_t;
+
 typedef uint32_t taskPriority_t;
 
 typedef enum {
@@ -54,9 +57,26 @@ typedef struct {
    taskPriority_t instantPriority;
 } taskControl_t;
 
+typedef enum {
+   EVENT_UNINITIALIZED = 0,
+   EVENT_INITIALIZED = 1,
+   EVENT_PENDING = 2,
+} eventState_t;
+
+typedef struct {
+   taskID_t taskID;
+   eventID_t eventID;
+   eventState_t state;
+} event_t;
 
 void MyRtos_StartOS(void);
 
 void MyRtos_DelayMs(uint32_t ms);
+
+bool MyRtos_EventInit(event_t *event);
+
+bool MyRtos_EventWait(event_t *event);
+
+bool MyRtos_EventSend(event_t *event);
 
 #endif

@@ -42,6 +42,7 @@
 #include "main.h"
 #include "sapi.h"
 #include "my_rtos.h"
+#include "my_rtos_events.h"
 
 #include "task1.h"
 #include "blink.h"

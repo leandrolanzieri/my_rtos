@@ -57,26 +57,14 @@ typedef struct {
    taskPriority_t instantPriority;
 } taskControl_t;
 
-typedef enum {
-   EVENT_UNINITIALIZED = 0,
-   EVENT_INITIALIZED = 1,
-   EVENT_PENDING = 2,
-} eventState_t;
-
-typedef struct {
-   taskID_t taskID;
-   eventID_t eventID;
-   eventState_t state;
-} event_t;
-
 void MyRtos_StartOS(void);
 
+void MyRtos_SchedulerUpdate(void);
+
+taskID_t MyRtos_GetCurrentTask(void);
+
+void MyRtos_AddReadyTask(taskID_t ID);
+
 void MyRtos_DelayMs(uint32_t ms);
-
-bool MyRtos_EventInit(event_t *event);
-
-bool MyRtos_EventWait(event_t *event);
-
-bool MyRtos_EventSend(event_t *event);
 
 #endif

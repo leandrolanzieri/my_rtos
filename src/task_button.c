@@ -1,4 +1,6 @@
 #include "sapi.h"
+#include "my_rtos.h"
+#include "my_rtos_events.h"
 #include "task_button.h"
 
 uint8_t stackButton[MY_RTOS_STACK_SIZE];

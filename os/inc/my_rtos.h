@@ -4,10 +4,11 @@
 #include "stdint.h"
 #include "stdbool.h"
 
+#include "my_rtos_config.h"
+
 #define MY_RTOS_LAST_TASK {0,0,0,0,0}
 
 /***********************************************************************/
-#define MY_RTOS_STACK_SIZE  512
 
 #define MY_RTOS_INITIAL_xPSR    (1 << 24)
 
@@ -16,10 +17,6 @@
 #define MY_RTOS_TASK_NONE -1
 
 #define MY_RTOS_IDLE_TASK -2
-
-#define MY_RTOS_MAX_TASKS  64
-
-#define MY_RTOS_PRIORITY_LEVELS 4
 
 #define MY_RTOS_INIT_TASK(_entryPoint, _stack, _stackSize, _parameter, _priority)        \
       {.entryPoint = _entryPoint, .stack = _stack, .stackPointer = 0,         \

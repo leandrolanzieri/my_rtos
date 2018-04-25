@@ -34,16 +34,18 @@ PROJECT_NAME := $(notdir $(PROJECT))
 
 # Modules needed by the application
 PROJECT_MODULES := modules/$(TARGET)/sapi_rtos \
-				   modules/$(TARGET)/base \
+                   modules/$(TARGET)/base \
                    modules/$(TARGET)/board \
                    modules/$(TARGET)/chip
 
 # source files folder
-PROJECT_SRC_FOLDERS := $(PROJECT)/src
+PROJECT_SRC_FOLDERS := $(PROJECT)/src \
+                       $(PROJECT)/os/src
 
 # header files folder
-PROJECT_INC_FOLDERS := $(PROJECT)/inc
+PROJECT_INC_FOLDERS := $(PROJECT)/inc \
+                       $(PROJECT)/os/inc
 
 # source files
-PROJECT_C_FILES := $(wildcard $(PROJECT)/src/*.c)
-PROJECT_ASM_FILES := $(wildcard $(PROJECT)/src/*.S)
+PROJECT_C_FILES := $(wildcard $(PROJECT)/src/*.c) $(wildcard $(PROJECT)/os/src/*.c)
+PROJECT_ASM_FILES := $(wildcard $(PROJECT)/src/*.S) $(wildcard $(PROJECT)/os/src/*.S)

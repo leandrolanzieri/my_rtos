@@ -1,5 +1,6 @@
 #include "my_rtos.h"
 #include "my_rtos_events.h"
+#include "chip.h"
 
 
 // Tasks list
@@ -36,9 +37,14 @@ bool MyRtos_EventInit(event_t *event) {
  * @return false Could not wait for event (check event state)
  */
 bool MyRtos_EventWait(event_t *event) {
-   
+   // Disable interrupts to avoid race conditions
+   __disable_irq();
+
    // Check if state can be used
    if (event->state != EVENT_INITIALIZED) {
+      // Enable interrupts before returning
+      __enable_irq();
+
       return false;
    }
 
@@ -53,6 +59,9 @@ bool MyRtos_EventWait(event_t *event) {
 
    // Mark current task as blocked
    MyRtos_TasksList[currentTask].state = TASK_BLOCKED;
+
+   // Enable interrupts before returning
+   __enable_irq();
 
    // Call the scheduler for context switching
    MyRtos_SchedulerUpdate();
@@ -69,9 +78,14 @@ bool MyRtos_EventWait(event_t *event) {
  * @return false Event could not be sent
  */
 bool MyRtos_EventSend(event_t *event) {
+   // Disable interrupts to avoid race conditions
+   __disable_irq();
 
    // Check if state was pending
    if (event->state != EVENT_PENDING) {
+      // Enable interrupts before returning
+      __enable_irq();
+
       return false;
    }
 
@@ -83,6 +97,9 @@ bool MyRtos_EventSend(event_t *event) {
 
    // Reset the event's state
    event->state = EVENT_INITIALIZED;
+
+   // Enable interrupts before returning
+   __enable_irq();
 
    // Call the scheduler for context switching
    MyRtos_SchedulerUpdate();

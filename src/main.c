@@ -43,6 +43,7 @@
 #include "sapi.h"
 #include "my_rtos.h"
 #include "my_rtos_events.h"
+#include "my_rtos_queues.h"
 
 #include "task1.h"
 #include "blink.h"
@@ -59,7 +60,8 @@
 static void initHardware(void);
 
 /*==================[internal data definition]===============================*/
-event_t ButtonEvent;
+// queue_t ledQueue;
+queue_t buttonQueue;
 /*==================[external data definition]===============================*/
 
 /*==================[internal functions definition]==========================*/
@@ -74,7 +76,8 @@ static void initHardware(void) {
 int main(void) {
    initHardware();
 
-   MyRtos_EventInit(&ButtonEvent);
+   // MyRtos_QueueInit(&ledQueue);
+   MyRtos_QueueInit(&buttonQueue);
 
    MyRtos_StartOS();
 
@@ -84,9 +87,9 @@ int main(void) {
 blinkTaskData_t taskA = { .delay = 100, .led = LED2 };
 
 #define MY_RTOS_TASKS                                                                \
-       MY_RTOS_INIT_TASK(blink, (uint32_t *)stack2, MY_RTOS_STACK_SIZE, &taskA, 0)      \
+       MY_RTOS_INIT_TASK(blink, (uint32_t *)stack2, MY_RTOS_STACK_SIZE, &taskA, 1)      \
        MY_RTOS_INIT_TASK(task1, (uint32_t *)stack1, MY_RTOS_STACK_SIZE, 0, 1)           \
-       MY_RTOS_INIT_TASK(taskButton, (uint32_t *)stackButton, MY_RTOS_STACK_SIZE, 0, 1)
+       MY_RTOS_INIT_TASK(taskButton, (uint32_t *)stackButton, MY_RTOS_STACK_SIZE, 0, 0)
 
 taskControl_t MyRtos_TasksList[] = {
    MY_RTOS_TASKS

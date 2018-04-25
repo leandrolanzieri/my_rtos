@@ -2,7 +2,6 @@
 #include "chip.h"
 #include "my_rtos.h"
 
-
 ///////////////////////////////////////////////////////////////////////////////
 // Internal functions declarations
 ///////////////////////////////////////////////////////////////////////////////
@@ -11,15 +10,11 @@ static bool MyRtos_initTask(taskControl_t *task, taskID_t ID);
 
 static void MyRtos_idleTask(void *param);
 
-static void MyRtos_schedulerUpdate(void);
-
 static void MyRtos_delaysUpdate(void);
 
 static void MyRtos_returnHook(void);
 
 static bool MyRtos_getReadyTask(taskID_t *ID);
-
-static void MyRtos_addReadyTask(taskID_t ID);
 
 static void MyRtos_updateReadyList(taskID_t ID);
 
@@ -60,10 +55,9 @@ extern taskControl_t MyRtos_TasksList[];
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @brief Starts the OS execution.
+ * @brief Starts the OS execution
  * 
  */
-
 void MyRtos_StartOS(void) {
    memset(idleStack, 0, MY_RTOS_STACK_SIZE);
 
@@ -91,15 +85,49 @@ void MyRtos_StartOS(void) {
 }
 
 
+/**
+ * @brief Returns the current task's ID
+ * 
+ * @return taskID_t Task's ID
+ */
+taskID_t MyRtos_GetCurrentTask(void) {
+   return currentTask;
+}
+
+
+/**
+ * @brief Calls the scheduler for a context switching
+ * 
+ */
+void MyRtos_SchedulerUpdate(void) {
+   // Activate PendSV for context switching
+   SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+
+   // Instruction Synchronization Barrier: this way we make sure that all
+   // pipelined instructions are executed
+   __ISB();
+      
+   // Data Synchronization Barrier: this way we make sure that all
+   // memory accesses are completed
+   __DSB();
+}
+
+
+/**
+ * @brief Delays the current task for a given amount of milliseconds
+ * 
+ * @param ms Amount of ms to delay the task
+ */
 void MyRtos_DelayMs(uint32_t ms) {
    if (currentTask != MY_RTOS_TASK_NONE && ms != 0 &&
        MyRtos_TasksList[currentTask].state == TASK_RUNNING)
    {
       MyRtos_TasksList[currentTask].delay = ms;
       MyRtos_TasksList[currentTask].state = TASK_BLOCKED;
-      MyRtos_schedulerUpdate();
+      MyRtos_SchedulerUpdate();
    }
 }
+
 
 /**
  * @brief Returns the context of the next task to be executed
@@ -108,14 +136,22 @@ void MyRtos_DelayMs(uint32_t ms) {
  * @return uint32_t Stack pointer of the new context
  */
 uint32_t MyRtos_GetNextContext(uint32_t currentSP) {
-   taskID_t nextTask = MY_RTOS_TASK_NONE;
 
+   taskID_t nextTask = MY_RTOS_TASK_NONE;
+   
+   // Disable interrupts to avoid race conditions
+   __disable_irq();
+   
    // If no tasks were declared execute idle task
    if (MyRtos_TasksList[0].entryPoint == 0) {
+      // Enable interrupts before returning
+      __enable_irq();
+      
       return idleTaskControl.stackPointer;
    }
 
    if (currentTask == MY_RTOS_IDLE_TASK) {
+      // If idle task is running, save its stack pointer
       idleTaskControl.stackPointer = currentSP;
    } else if (currentTask != MY_RTOS_TASK_NONE) {
       // Save current task stack pointer
@@ -129,12 +165,21 @@ uint32_t MyRtos_GetNextContext(uint32_t currentSP) {
    if (MyRtos_getReadyTask(&nextTask)) {
       currentTask = nextTask;
    } else {
+      
+      // Mark Idle task as current
       currentTask = MY_RTOS_IDLE_TASK;
+
+      // Enable interrupts before returning
+      __enable_irq();
+
       return idleTaskControl.stackPointer;
    }
 
    // Mark the new current task as 'Running'
    MyRtos_TasksList[currentTask].state = TASK_RUNNING;
+   
+   // Enable interrupts before returning
+   __enable_irq();
 
    // Return new stack pointer
    return MyRtos_TasksList[currentTask].stackPointer;
@@ -146,7 +191,7 @@ uint32_t MyRtos_GetNextContext(uint32_t currentSP) {
 
 /**
  * @brief Looks for the highest priority ready task on the lists and returns
- *        it's ID.
+ *        its ID
  * 
  * @param ID Pointer to save the found ID
  * @return true A task was found
@@ -169,12 +214,12 @@ static bool MyRtos_getReadyTask(taskID_t *ID) {
 }
 
 /**
- * @brief Adds a task ID to the bottom of the ready list of it's priority and
- *        changes it's state to ready.
+ * @brief Adds a task ID to the bottom of the ready list of its priority and
+ *        changes it's state to ready
  * 
  * @param ID The ID of the task to be added to the list
  */
-static void MyRtos_addReadyTask(taskID_t ID) {
+void MyRtos_AddReadyTask(taskID_t ID) {
    uint32_t slot = 0;
    taskPriority_t priority = MyRtos_TasksList[ID].basePriority;
 
@@ -196,7 +241,7 @@ static void MyRtos_addReadyTask(taskID_t ID) {
 
 /**
  * @brief Updates a ready tasks list. Pushes the current to the bottom
- *        if it was running and updates it's state.
+ *        if it was running and updates its state
  * 
  * @param ID ID of the task to be moved on the list (or removed)
  */
@@ -211,7 +256,7 @@ static void MyRtos_updateReadyList(taskID_t ID) {
 
    taskPriority_t priority = MyRtos_TasksList[ID].basePriority;
 
-   // Verify that the passed task is the running task on it's list
+   // Verify that the passed task is the running task on its list
    if (readyTasks[priority][0] != ID) {
       return;
    }
@@ -246,7 +291,7 @@ static void MyRtos_updateReadyList(taskID_t ID) {
 static bool MyRtos_initTask(taskControl_t *task, taskID_t ID) {
    MyRtos_initStack(task);
 
-   MyRtos_addReadyTask(ID);
+   MyRtos_AddReadyTask(ID);
 
    return true;
 }
@@ -255,7 +300,7 @@ static void MyRtos_initStack(taskControl_t *task) {
      // Initialize stack with 0
    memset(task->stack, 0, task->stackSize);
 
-   // Point stack pointer to last unused position in stack. 17 posisions used.
+   // Point stack pointer to last unused position in stack. 17 positions used
    task->stackPointer = (uint32_t)(task->stack + (task->stackSize / 4) - 17);
 
    // Indicate ARM/Thumb mode in PSR registers
@@ -264,28 +309,45 @@ static void MyRtos_initStack(taskControl_t *task) {
    // Program counter is the pointer to task
    task->stack[(task->stackSize / 4) - 2] = (uint32_t)task->entryPoint;
 
-   // LR - Link Register. Could be use to point to a return hook. 0 for now.
+   // LR - Link Register. Could be use to point to a return hook. 0 for now
    task->stack[(task->stackSize / 4) - 3] = MyRtos_returnHook;
 
-   // R0 - First parameter passed to the task. 0 for now.
+   // R0 - First parameter passed to the task. 0 for now
    task->stack[(task->stackSize / 4) - 8] = task->initialParameter;
 
    // LR from stack
    task->stack[(task->stackSize / 4) - 9] = MY_RTOS_EXC_RETURN; 
 }
 
+
+/**
+ * @brief Idle task. This task will be running when there is no other ready task
+ * 
+ * @param param None
+ */
 static void MyRtos_idleTask(void *param) {
    while(1) {
       __WFI();
    }
 }
 
+
+/**
+ * @brief Hook to catch any return from a running task
+ * 
+ */
 static void MyRtos_returnHook(void) {
    while(1) {
       __WFI();
    }
 }
 
+
+/**
+ * @brief Updates the delay counter of every task and sets it to ready if time
+ *        is up
+ * 
+ */
 static void MyRtos_delaysUpdate(void) {
    taskID_t i = 0;
 
@@ -293,31 +355,21 @@ static void MyRtos_delaysUpdate(void) {
       if (MyRtos_TasksList[i].delay != 0) {
          MyRtos_TasksList[i].delay--;
          if (MyRtos_TasksList[i].delay == 0) {
-            MyRtos_addReadyTask(i);
+            MyRtos_AddReadyTask(i);
          }
       }
       i++;
    }
 }
 
-static void MyRtos_schedulerUpdate(void) {
-   // Activate PendSV for context switching
-   SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
 
-   // Instruction Synchronization Barrier: this way we make sure that all
-   // pipelined instructions are executed
-   __ISB();
-      
-   // Data Synchronization Barrier: this way we make sure that all
-   // memory accesses are completed
-   __DSB();
-}
-
+/**
+ * @brief Handler for the systick peripheral. It updates delays and calls the
+ *        scheduler
+ * 
+ */
 void SysTick_Handler(void) {
-   // Increment system ticks
-   systemTicks++;
-
    MyRtos_delaysUpdate();
 
-   MyRtos_schedulerUpdate();
+   MyRtos_SchedulerUpdate();
 }

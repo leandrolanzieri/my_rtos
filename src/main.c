@@ -42,6 +42,8 @@
 #include "main.h"
 #include "sapi.h"
 #include "my_rtos.h"
+#include "my_rtos_events.h"
+#include "my_rtos_queues.h"
 
 #include "task1.h"
 #include "blink.h"
@@ -58,7 +60,8 @@
 static void initHardware(void);
 
 /*==================[internal data definition]===============================*/
-
+// queue_t ledQueue;
+queue_t buttonQueue;
 /*==================[external data definition]===============================*/
 
 /*==================[internal functions definition]==========================*/
@@ -72,6 +75,9 @@ static void initHardware(void) {
 
 int main(void) {
    initHardware();
+
+   // MyRtos_QueueInit(&ledQueue);
+   MyRtos_QueueInit(&buttonQueue);
 
    MyRtos_StartOS();
 

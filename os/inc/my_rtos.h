@@ -2,11 +2,13 @@
 #define MY_RTOS_H
 
 #include "stdint.h"
+#include "stdbool.h"
+
+#include "my_rtos_config.h"
 
 #define MY_RTOS_LAST_TASK {0,0,0,0,0}
 
 /***********************************************************************/
-#define MY_RTOS_STACK_SIZE  512
 
 #define MY_RTOS_INITIAL_xPSR    (1 << 24)
 
@@ -15,10 +17,6 @@
 #define MY_RTOS_TASK_NONE -1
 
 #define MY_RTOS_IDLE_TASK -2
-
-#define MY_RTOS_MAX_TASKS  64
-
-#define MY_RTOS_PRIORITY_LEVELS 4
 
 #define MY_RTOS_INIT_TASK(_entryPoint, _stack, _stackSize, _parameter, _priority)        \
       {.entryPoint = _entryPoint, .stack = _stack, .stackPointer = 0,         \
@@ -31,6 +29,8 @@
 typedef void(*task_t)(void *);
 
 typedef int32_t taskID_t;
+
+typedef uint32_t eventID_t;
 
 typedef uint32_t taskPriority_t;
 
@@ -54,8 +54,13 @@ typedef struct {
    taskPriority_t instantPriority;
 } taskControl_t;
 
-
 void MyRtos_StartOS(void);
+
+void MyRtos_SchedulerUpdate(void);
+
+taskID_t MyRtos_GetCurrentTask(void);
+
+void MyRtos_AddReadyTask(taskID_t ID);
 
 void MyRtos_DelayMs(uint32_t ms);
 

@@ -11,6 +11,7 @@
 	.thumb_func
 
 PendSV_Handler:
+   cpsid i
    /* Push FPU context if necessary */
    tst lr, 0x10 /* EXC_RETURN[4] == 1 ? */
    it eq
@@ -31,5 +32,5 @@ PendSV_Handler:
    tst lr, 0x10
    it eq
    vpopeq {s16-s31}
-
+   cpsie i
    bx lr

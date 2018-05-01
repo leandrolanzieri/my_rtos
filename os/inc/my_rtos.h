@@ -34,6 +34,8 @@ typedef uint32_t eventID_t;
 
 typedef uint32_t taskPriority_t;
 
+typedef uint32_t osTicks_t;
+
 typedef enum {
    TASK_ERROR = 0,
    TASK_READY = 1,
@@ -54,6 +56,11 @@ typedef struct {
    taskPriority_t instantPriority;
 } taskControl_t;
 
+typedef enum {
+   STATE_IRQ = 0,
+   STATE_TASK = 1
+} osState_t;
+
 void MyRtos_StartOS(void);
 
 void MyRtos_SchedulerUpdate(void);
@@ -62,6 +69,12 @@ taskID_t MyRtos_GetCurrentTask(void);
 
 void MyRtos_AddReadyTask(taskID_t ID);
 
-void MyRtos_DelayMs(uint32_t ms);
+void MyRtos_DelayMs(osTicks_t ms);
+
+osTicks_t MyRtos_GetSystemTicks();
+
+void os_enter_critical(void);
+
+void os_exit_critical(void);
 
 #endif

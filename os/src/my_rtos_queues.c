@@ -4,6 +4,8 @@
 #include "my_rtos_events.h"
 #include "my_rtos_queues.h"
 
+extern osState_t osState;
+extern bool osSwitchRequired;
 
 /**
  * @brief Initializes a queue for it's use.
@@ -40,8 +42,13 @@ bool MyRtos_QueueInit(queue_t *queue) {
  * @return false Could not read queue
  */
 bool MyRtos_QueueReceive(queue_t *queue, queueItem_t *data) {
+
+   // Check if valid calling context
+   if (osState == STATE_IRQ) {
+      return false;
+   }
    
-   __disable_irq();
+   os_enter_critical();
 
    // Check if queue is ready to use
    if (queue->state == QUEUE_UNINITIALIZED) {
@@ -53,7 +60,7 @@ bool MyRtos_QueueReceive(queue_t *queue, queueItem_t *data) {
          MyRtos_EventWait(&(queue->receiveEvent));
       } else {
 
-         __enable_irq();
+         os_exit_critical();
 
          return false;
       }
@@ -65,10 +72,10 @@ bool MyRtos_QueueReceive(queue_t *queue, queueItem_t *data) {
    // Mark queue as empty
    queue->state = QUEUE_EMPTY;
 
-   __enable_irq();
-
    // Send send event to unblock any waiting task
    MyRtos_EventSend(&(queue->sendEvent));
+
+   os_exit_critical();
 
    return true;
 }
@@ -86,12 +93,17 @@ bool MyRtos_QueueReceive(queue_t *queue, queueItem_t *data) {
 bool MyRtos_QueueSend(queue_t *queue, queueItem_t data) {
 
    // Disable interrupts to avoid race conditions
-   __disable_irq();
+   os_enter_critical();
+   
+   if (osState == STATE_IRQ) {
+      // Mark that a scheduler update is needed
+      osSwitchRequired = true;
+   }
 
    // Check if queue is ready to use
    if (queue->state == QUEUE_UNINITIALIZED) {
       // Enable interrupts before returning
-      __enable_irq();
+         os_exit_critical();
 
       return false;
    } else if (queue->state == QUEUE_FULL) {
@@ -101,7 +113,7 @@ bool MyRtos_QueueSend(queue_t *queue, queueItem_t data) {
          MyRtos_EventWait(&(queue->sendEvent));
       } else {
          // Enable interrupts before returning
-         __enable_irq();
+            os_exit_critical();
 
          return false;
       }
@@ -113,11 +125,10 @@ bool MyRtos_QueueSend(queue_t *queue, queueItem_t data) {
    // Mark queue as full
    queue->state = QUEUE_FULL;
 
-   // Enable interrupts before returning
-   __enable_irq();
-
    // Send receive event to unblock any waiting task
    MyRtos_EventSend(&(queue->receiveEvent));
+
+   os_exit_critical();
 
    return true;
 }

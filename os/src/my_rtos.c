@@ -24,7 +24,7 @@ static void MyRtos_initStack(taskControl_t *task);
 // Internal data definitions
 ///////////////////////////////////////////////////////////////////////////////
 
-static uint32_t systemTicks = 0;
+static osTicks_t systemTicks = 0;
 
 static uint8_t idleStack[MY_RTOS_STACK_SIZE];
 
@@ -47,12 +47,31 @@ static taskID_t readyTasks[MY_RTOS_PRIORITY_LEVELS][MY_RTOS_MAX_TASKS];
 // External data definitions
 ///////////////////////////////////////////////////////////////////////////////
 
+osState_t osState = STATE_TASK;
+
+bool osSwitchRequired;
+
 // Tasks list
 extern taskControl_t MyRtos_TasksList[];
 
 ///////////////////////////////////////////////////////////////////////////////
 // External functions definitions
 ///////////////////////////////////////////////////////////////////////////////
+
+int32_t critical_counter = 0;
+
+void os_enter_critical(void) {
+   critical_counter++;
+   __disable_irq();
+}
+
+void os_exit_critical(void) {
+   critical_counter--;
+   if (critical_counter <= 0) {
+      critical_counter = 0;
+      __enable_irq();
+   }
+}
 
 /**
  * @brief Starts the OS execution
@@ -118,13 +137,23 @@ void MyRtos_SchedulerUpdate(void) {
  * 
  * @param ms Amount of ms to delay the task
  */
-void MyRtos_DelayMs(uint32_t ms) {
+void MyRtos_DelayMs(osTicks_t ms) {
+   
+   // Check if valid calling context
+   if (osState == STATE_IRQ) {
+      return;
+   }
+
+   os_enter_critical();
    if (currentTask != MY_RTOS_TASK_NONE && ms != 0 &&
        MyRtos_TasksList[currentTask].state == TASK_RUNNING)
    {
       MyRtos_TasksList[currentTask].delay = ms;
       MyRtos_TasksList[currentTask].state = TASK_BLOCKED;
+      os_exit_critical();
       MyRtos_SchedulerUpdate();
+   } else {
+      os_exit_critical();
    }
 }
 
@@ -138,15 +167,10 @@ void MyRtos_DelayMs(uint32_t ms) {
 uint32_t MyRtos_GetNextContext(uint32_t currentSP) {
 
    taskID_t nextTask = MY_RTOS_TASK_NONE;
-   
-   // Disable interrupts to avoid race conditions
-   __disable_irq();
+
    
    // If no tasks were declared execute idle task
-   if (MyRtos_TasksList[0].entryPoint == 0) {
-      // Enable interrupts before returning
-      __enable_irq();
-      
+   if (MyRtos_TasksList[0].entryPoint == 0) {      
       return idleTaskControl.stackPointer;
    }
 
@@ -169,48 +193,15 @@ uint32_t MyRtos_GetNextContext(uint32_t currentSP) {
       // Mark Idle task as current
       currentTask = MY_RTOS_IDLE_TASK;
 
-      // Enable interrupts before returning
-      __enable_irq();
-
       return idleTaskControl.stackPointer;
    }
 
    // Mark the new current task as 'Running'
    MyRtos_TasksList[currentTask].state = TASK_RUNNING;
    
-   // Enable interrupts before returning
-   __enable_irq();
 
    // Return new stack pointer
    return MyRtos_TasksList[currentTask].stackPointer;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Internal functions definitions
-///////////////////////////////////////////////////////////////////////////////
-
-/**
- * @brief Looks for the highest priority ready task on the lists and returns
- *        its ID
- * 
- * @param ID Pointer to save the found ID
- * @return true A task was found
- * @return false No task was found
- */
-static bool MyRtos_getReadyTask(taskID_t *ID) {
-   // Sweep every priority looking for the first task to be executed
-   for (uint32_t priority = 0; priority < MY_RTOS_PRIORITY_LEVELS; priority++) {
-      
-      // If slot is not empty return this ID
-      if (readyTasks[priority][0] != MY_RTOS_TASK_NONE) {
-         *ID = readyTasks[priority][0];
-         return true;
-      }
-
-   }
-
-   // No ready task was found
-   return false;
 }
 
 /**
@@ -239,6 +230,44 @@ void MyRtos_AddReadyTask(taskID_t ID) {
    }
 }
 
+
+/**
+ * @brief Returns the current value of the system ticks.
+ * 
+ * @return uint64_t Current system ticks
+ */
+osTicks_t MyRtos_GetSystemTicks() {
+   return systemTicks;
+}
+///////////////////////////////////////////////////////////////////////////////
+// Internal functions definitions
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @brief Looks for the highest priority ready task on the lists and returns
+ *        its ID
+ * 
+ * @param ID Pointer to save the found ID
+ * @return true A task was found
+ * @return false No task was found
+ */
+static bool MyRtos_getReadyTask(taskID_t *ID) {
+   // Sweep every priority looking for the first task to be executed
+   for (uint32_t priority = 0; priority < MY_RTOS_PRIORITY_LEVELS; priority++) {
+      
+      // If slot is not empty return this ID
+      if (readyTasks[priority][0] != MY_RTOS_TASK_NONE) {
+         *ID = readyTasks[priority][0];
+         return true;
+      }
+
+   }
+
+   // No ready task was found
+   return false;
+}
+
+
 /**
  * @brief Updates a ready tasks list. Pushes the current to the bottom
  *        if it was running and updates its state
@@ -246,8 +275,8 @@ void MyRtos_AddReadyTask(taskID_t ID) {
  * @param ID ID of the task to be moved on the list (or removed)
  */
 static void MyRtos_updateReadyList(taskID_t ID) {
-   // Slot 0 is supposed to be used by the running task
-   uint32_t slot = 1;
+
+   uint32_t slot = 0;
 
    // Check if it's a valid ID
    if (ID == MY_RTOS_TASK_NONE) {
@@ -261,25 +290,18 @@ static void MyRtos_updateReadyList(taskID_t ID) {
       return;
    }
 
-   // Sweep the list pushing the tasks to the top
-   while (readyTasks[priority][slot] != MY_RTOS_TASK_NONE &&
-          slot < MY_RTOS_MAX_TASKS)
-   {
-      readyTasks[priority][slot - 1] = readyTasks[priority][slot];
+   // Push ready tasks down the list
+   do {
       slot++;
-   }
+      readyTasks[priority][slot - 1] = readyTasks[priority][slot];
+   } while (readyTasks[priority][slot] != MY_RTOS_TASK_NONE &&
+            slot < MY_RTOS_MAX_TASKS);
 
-   // Check if the slot is inside boundaries
-   if (slot < MY_RTOS_MAX_TASKS) {
-
-      // If the current task was running put it at the bottom
-      if (MyRtos_TasksList[ID].state == TASK_RUNNING) {
-         MyRtos_TasksList[ID].state = TASK_READY;
-         readyTasks[priority][slot] = ID;
-      } else {
-         readyTasks[priority][slot - 1] = MY_RTOS_TASK_NONE;
-      }
-      
+   // If the current task was still running mark it as ready and add it to the 
+   // list
+   if (MyRtos_TasksList[ID].state == TASK_RUNNING) {
+      MyRtos_TasksList[ID].state = TASK_READY;
+      readyTasks[priority][slot-1] = ID;
    }
 }
 
@@ -350,6 +372,8 @@ static void MyRtos_returnHook(void) {
  */
 static void MyRtos_delaysUpdate(void) {
    taskID_t i = 0;
+
+   systemTicks++;
 
    while(MyRtos_TasksList[i].entryPoint != 0) {
       if (MyRtos_TasksList[i].delay != 0) {

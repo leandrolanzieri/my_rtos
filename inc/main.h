@@ -38,7 +38,7 @@
  ** @{ */
 
 /*==================[inclusions]=============================================*/
-
+#include "my_rtos.h"
 /*==================[cplusplus]==============================================*/
 
 #ifdef __cplusplus
@@ -53,6 +53,35 @@ extern "C" {
 /** led number to toggle */
 #define LED 0
 
+#define CH0_LED 0
+#define CH1_LED 3
+#define CH2_LED 4
+#define CH3_LED 5
+
+#define CH0_PININT 0
+#define CH1_PININT 1
+#define CH2_PININT 2
+#define CH3_PININT 3
+
+#define CH0_PIN_INT_IRQn PIN_INT0_IRQn
+#define CH1_PIN_INT_IRQn PIN_INT1_IRQn
+#define CH2_PIN_INT_IRQn PIN_INT2_IRQn
+#define CH3_PIN_INT_IRQn PIN_INT3_IRQn
+
+#define CH0_GPIO_PORT   0
+#define CH0_GPIO_PIN    4
+#define CH1_GPIO_PORT   0
+#define CH1_GPIO_PIN    8
+#define CH2_GPIO_PORT   0
+#define CH2_GPIO_PIN    9
+#define CH3_GPIO_PORT   1
+#define CH3_GPIO_PIN    9
+
+#define CH0_IRQ_HANDLER GPIO0_IRQHandler
+#define CH1_IRQ_HANDLER GPIO1_IRQHandler
+#define CH2_IRQ_HANDLER GPIO2_IRQHandler
+#define CH3_IRQ_HANDLER GPIO3_IRQHandler
+
 /*==================[typedef]================================================*/
 
 /*==================[external data declaration]==============================*/
@@ -64,6 +93,11 @@ extern "C" {
  */
 int main(void);
 
+void button1Interrupt(void);
+
+void button2Interrupt(void);
+
+void reportTimes(int firstButton, osTicks_t time);
 /*==================[cplusplus]==============================================*/
 
 #ifdef __cplusplus

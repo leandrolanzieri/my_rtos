@@ -44,10 +44,13 @@
 #include "my_rtos.h"
 #include "my_rtos_events.h"
 #include "my_rtos_queues.h"
+#include "my_rtos_vectors.h"
+#include "ciaaUART.h"
 
-#include "task1.h"
-#include "blink.h"
-#include "task_button.h"
+#include "task_led_down.h"
+#include "task_led_up.h"
+#include "task_button_down.h"
+#include "task_button_up.h"
 
 /*==================[macros and definitions]=================================*/
 /*==================[internal data declaration]==============================*/
@@ -60,36 +63,120 @@
 static void initHardware(void);
 
 /*==================[internal data definition]===============================*/
-// queue_t ledQueue;
-queue_t buttonQueue;
+
+event_t buttonDownEvent, buttonUpEvent, ledDownEvent, ledUpEvent;
+bool buttonsPressed = false;
+osTicks_t downTime = 0, upTime = 0;
+
 /*==================[external data definition]===============================*/
 
 /*==================[internal functions definition]==========================*/
 
 static void initHardware(void) {
    boardConfig();
+
+   ciaaUARTInit();
+
+   /* External Interrupt for CH0 */
+   Chip_SCU_GPIOIntPinSel(CH0_PININT, CH0_GPIO_PORT, CH0_GPIO_PIN);
+   Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(CH0_PININT));
+   Chip_PININT_SetPinModeEdge(LPC_GPIO_PIN_INT, PININTCH(CH0_PININT));
+   Chip_PININT_EnableIntLow(LPC_GPIO_PIN_INT, PININTCH(CH0_PININT));
+   Chip_PININT_EnableIntHigh(LPC_GPIO_PIN_INT, PININTCH(CH0_PININT));
+
+   /* External Interrupt for CH1 */
+   Chip_SCU_GPIOIntPinSel(CH1_PININT, CH1_GPIO_PORT, CH1_GPIO_PIN);
+   Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(CH1_PININT));
+   Chip_PININT_SetPinModeEdge(LPC_GPIO_PIN_INT, PININTCH(CH1_PININT));
+   Chip_PININT_EnableIntLow(LPC_GPIO_PIN_INT, PININTCH(CH1_PININT));
+   Chip_PININT_EnableIntHigh(LPC_GPIO_PIN_INT, PININTCH(CH1_PININT));
 }
 
+/**
+ * @brief Funcion que se llama con las interrupciones del canal 0 de GPIO.
+ *        Dependiendo del flanco que la produjo libera un evento u otro.
+ * 
+ */
+void button1Interrupt(void) {
+
+   if (Chip_PININT_GetFallStates(LPC_GPIO_PIN_INT) & PININTCH(CH0_PININT)) {
+      Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(CH0_PININT));
+      MyRtos_EventSend(&buttonDownEvent);
+   } else {
+      Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(CH0_PININT));
+      MyRtos_EventSend(&buttonUpEvent);
+   }
+}
+
+
+/**
+ * @brief Funcion que se llama con las interrupciones del canal 1 de GPIO.
+ *        Dependiendo del flanco que la produjo libera un evento u otro.
+ * 
+ */
+void button2Interrupt(void) {
+
+   if (Chip_PININT_GetFallStates(LPC_GPIO_PIN_INT) & PININTCH(CH1_PININT)) {
+      Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(CH1_PININT));
+      MyRtos_EventSend(&buttonDownEvent);
+   } else {
+      Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(CH1_PININT));
+      MyRtos_EventSend(&buttonUpEvent);
+   }
+}
+
+
+/**
+ * @brief Reporta los tiempos entre los eventos de los pulsadores. Recibe el 
+ *        el orden de los botones y el tiempo y los imprime con el formato
+ *        requerido por UART USB.
+ * 
+ * @param firstButton Primer boton que produjo el evento
+ * @param time Tiempo entre eventos
+ */
+void reportTimes(int firstButton, osTicks_t time) {
+   dbgPrint("{");
+
+   if (firstButton == TEC1) {
+      dbgPrint("0:1:");
+   } else {
+      dbgPrint("1:0:");
+   }
+   
+   dbgPrint(intToString(time));
+   dbgPrint("}\r\n");
+}
 
 /*==================[external functions definition]==========================*/
 
 int main(void) {
+   // Se inicialza el hardware
    initHardware();
 
-   // MyRtos_QueueInit(&ledQueue);
-   MyRtos_QueueInit(&buttonQueue);
+   // Se registran las funciones para las interrupciones de GPIO
+   MyRtos_AttachIRQ(PIN_INT0_IRQn, button1Interrupt);
+   MyRtos_AttachIRQ(PIN_INT1_IRQn, button2Interrupt);
 
+   // Se incializan los eventos
+   MyRtos_EventInit(&buttonDownEvent); // Boton presionado
+   MyRtos_EventInit(&buttonUpEvent); // Boton liberado
+   MyRtos_EventInit(&ledDownEvent); // Encender led de tiempo desc.
+   MyRtos_EventInit(&ledUpEvent); // Encender led de tiempo asc.
+
+   // Se lanza el OS
    MyRtos_StartOS();
 
    while (1) {}
 }
 
-blinkTaskData_t taskA = { .delay = 100, .led = LED2 };
 
-#define MY_RTOS_TASKS                                                                \
-       MY_RTOS_INIT_TASK(blink, (uint32_t *)stack2, MY_RTOS_STACK_SIZE, &taskA, 1)      \
-       MY_RTOS_INIT_TASK(task1, (uint32_t *)stack1, MY_RTOS_STACK_SIZE, 0, 1)           \
-       MY_RTOS_INIT_TASK(taskButton, (uint32_t *)stackButton, MY_RTOS_STACK_SIZE, 0, 0)
+// Se registran las tareas
+#define MY_RTOS_TASKS                                                                   \
+       MY_RTOS_INIT_TASK(taskLedDown, (uint32_t *)stackLedDown, MY_RTOS_STACK_SIZE, 0, 0) \
+       MY_RTOS_INIT_TASK(taskLedUp, (uint32_t *)stackLedUp, MY_RTOS_STACK_SIZE, 0, 0) \
+       MY_RTOS_INIT_TASK(taskButtonDown, (uint32_t *)stackButtonDown, MY_RTOS_STACK_SIZE, 0, 0) \
+       MY_RTOS_INIT_TASK(taskButtonUp, (uint32_t *)stackButtonUp, MY_RTOS_STACK_SIZE, 0, 0) \
+
 
 taskControl_t MyRtos_TasksList[] = {
    MY_RTOS_TASKS

@@ -7,7 +7,8 @@
 uint8_t stack2[MY_RTOS_STACK_SIZE];
 
 // extern queue_t ledQueue;
-extern queue_t buttonQueue;
+//extern queue_t buttonQueue;
+extern event_t buttonEvent;
 
 void allLedsOff(void) {
    gpioWrite(LED1, OFF);
@@ -22,9 +23,10 @@ void blink(void *config) {
 
    while(1) {
       // MyRtos_QueueReceive(&ledQueue, &led);
-      MyRtos_QueueReceive(&buttonQueue, &led);
+      // MyRtos_QueueReceive(&buttonQueue, &led);
+      MyRtos_EventWait(&buttonEvent);
 
-      gpioToggle(led);
-      MyRtos_DelayMs(400);
+      gpioToggle(LED2);
+      MyRtos_DelayMs(200);
    }
 }

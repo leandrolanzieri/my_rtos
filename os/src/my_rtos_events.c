@@ -5,6 +5,8 @@
 
 // Tasks list
 extern taskControl_t MyRtos_TasksList[];
+extern osState_t osState;
+extern bool osSwitchRequired;
 
 /**
  * @brief Initializes an event for it's future use.
@@ -37,13 +39,19 @@ bool MyRtos_EventInit(event_t *event) {
  * @return false Could not wait for event (check event state)
  */
 bool MyRtos_EventWait(event_t *event) {
+
+   // Check if valid calling context
+   if (osState == STATE_IRQ) {
+      return false;
+   }
+
    // Disable interrupts to avoid race conditions
-   __disable_irq();
+   os_enter_critical();
 
    // Check if state can be used
    if (event->state != EVENT_INITIALIZED) {
       // Enable interrupts before returning
-      __enable_irq();
+      os_exit_critical();
 
       return false;
    }
@@ -61,7 +69,7 @@ bool MyRtos_EventWait(event_t *event) {
    MyRtos_TasksList[currentTask].state = TASK_BLOCKED;
 
    // Enable interrupts before returning
-   __enable_irq();
+   os_exit_critical();
 
    // Call the scheduler for context switching
    MyRtos_SchedulerUpdate();
@@ -79,12 +87,17 @@ bool MyRtos_EventWait(event_t *event) {
  */
 bool MyRtos_EventSend(event_t *event) {
    // Disable interrupts to avoid race conditions
-   __disable_irq();
+   os_enter_critical();
+
+   if (osState == STATE_IRQ) {
+      // Mark that a scheduler update is needed
+      osSwitchRequired = true;
+   }
 
    // Check if state was pending
    if (event->state != EVENT_PENDING) {
       // Enable interrupts before returning
-      __enable_irq();
+      os_exit_critical();
 
       return false;
    }
@@ -99,10 +112,13 @@ bool MyRtos_EventSend(event_t *event) {
    event->state = EVENT_INITIALIZED;
 
    // Enable interrupts before returning
-   __enable_irq();
+   os_exit_critical();
 
-   // Call the scheduler for context switching
-   MyRtos_SchedulerUpdate();
+   // Call switch context only if not calling from an IRQ
+   if (osState != STATE_IRQ) {
+      // Call the scheduler for context switching
+      MyRtos_SchedulerUpdate();
+   }
 
    return true;
 }
